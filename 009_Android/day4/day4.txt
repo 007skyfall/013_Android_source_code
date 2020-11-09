@@ -1,0 +1,240 @@
+【1】复习
+	jni的动态注册
+	java:
+		1.native修饰本地的方法
+		2.调用底层的库
+		3.在main方法中调用这个native修饰的方法
+	---------------------------------------------
+	jni:
+		JNI_OnLoad(jvm)
+		{
+			1.获取env指针
+			2.找类(*env)->FindClass(env,"包名+类名");
+			3.注册本地方法(*env)->RegisterNative(env,cls,methods,nmethods);
+		}
+		
+		JNINativeMthods methods[] = {
+			{"java_open","()I",(void *)c_open},
+			{"java_ioctl","(II)I",(void *)c_ioctl},
+			{"java_clse","()I",(void *)c_close},
+			
+		}
+	
+	2.app-->c--->driver
+		1.没有权限
+			chmod 777 /dev/hello
+		2.缺少selinux权限
+		临时：
+			setenforce 0 关闭 selinux
+			setenforce 1 打开 selinux
+		永久性解决办法：（修改）
+			
+		selinux权限问题分析：
+		01-05 13:03:30.788  8418  8418 W om.hqyj.led_app: type=1400 
+		audit(0.0:450): avc: denied { read write } for name="hello" 
+		dev="tmpfs" ino=23231 scontext=u:r:untrusted_app:s0:c512,c768 
+		tcontext=u:object_r:device:s0 tclass=chr_file permissive=0
+		
+		分析过程：
+		缺少什么权限：        read write 
+		谁缺少权限  ：        untrusted_app
+		对哪一个文件缺少权限：device
+		什么类型的文件：      chr_file
+		
+		解决办法：untrusted_app.te
+		allow untrusted_app device:chr_file {read write};
+		allow untrusted_app device:chr_file rw_file_perms;	
+			
+		第一步：找到需要访问该内核节点的进程（process），
+		笔者自己这个节点由untrusted_app进程来访问
+		
+		第二步：打开文件
+		AndroidM/android/external/sepolicy/file_contexts
+		/dev/hello              u:object_r:hello_device:s0
+		
+		
+		第三步：打开文件
+		AndroidM/android/external/sepolicy/device.te
+		type hello_device,dev_type,mlstrustedobject; 
+		//(Android6.0之后需要添加mlstrustedobject)
+		
+		第四步：
+			AndroidL/android/external/sepolicy/untrusted_app.te
+			allow untrusted_app hello_device:chr_file rw_file_perms;
+			
+		
+		第五步：
+			将驱动编译到内核中
+			/fapsd-733/lichee/linux-3.4/drivers/char/
+			vi Makefile
+			obj-y +=myled.o
+			
+			/fapsd-764/lichee/linux-3.10/drivers/char/
+			vi Makefile
+			obj-y +=myled.o
+			
+		第六步：
+			在文件中修改节点的权限
+			fspad-733/androidM/device/softwinner/
+			astar-fspad_733$ vi ueventd.sun8i.rc
+			/dev/hello     0777    system      system
+			
+			
+		java  		jni     			 c
+		int   		jint    			int
+		String		jstring (env方法)	char *
+		
+		jni传递字符串：参考jni.pdf 39页
+		jni传递数组  ：参考jni.pdf 48页
+		
+【2】HAL层（闭源）重点		
+	1.保护芯片厂商利益，规避GPL协议，只需要向用用户
+	提供xxx.so(API)
+	
+	2.两个版本
+	Android Hal架构分为两种：
+	①旧的架构module
+
+	一 Module架构
+		旧的HAL 架构(libhardware_legacy) 作法，是传统的「module」方式，
+		也就是将 *.so 文件当做「shared library」来使用，在runtime（JNI 部份）
+		以 direct function call 使用 HAL module。通过直接函数调用的方式，来
+		操作驱动程序。当然，应用程序也可以不需要通过 JNI 的方式进行，直接加
+		载 *.so 库（dlopen）的做法调用*.so 里的符号（symbol）也是一种方式。
+		总而言之是没有经过封装，上层可以直接操作硬件
+	②新的架构module stub
+	二 新的Hal架构：
+		新的HAL 架构(libhardware)，就有「stub」的味道了。HAL stub 是一种
+		代理人（proxy）的概念，stub 虽然仍是以 *.so的形式存在，但 HAL 已
+		经将 *.so 隐藏起来了。Stub 向 HAL「提供」操作函数（operations），
+		而 runtime 则是向 HAL 取得特定模块（stub）的 operations，再 callback
+		这些操作函数。这种以 indirect function call 的架构，让HAL stub 变
+		成是一种「包含」关系，即 HAL 里包含了许许多多的 stub（代理人）。
+		Runtime 只要说明「类型」，即 module ID，就可以取得操作函数。对于
+		目前的HAL，可以认为Android定义了HAL层结构框架，通过几个接口访问硬
+		件从而统一了调用方式。
+	
+			
+【3】HAL层结构体	
+	typedef struct hw_module_t { 
+		const char *id;        
+		//模块的身份证号
+		struct hw_module_methods_t* methods;
+		//操作方法
+	} hw_module_t;
+
+	typedef struct hw_module_methods_t {
+		int (*open)(const struct hw_module_t* module, const char* id,
+				struct hw_device_t** device);
+	} hw_module_methods_t;
+		
+	struct led_device_t{
+		struct hw_device_t*comm;
+		int (*hal_open)();
+		int (*hal_ioctl)();
+		int (*hal_close)();
+	}	
+	
+		
+		
+
+	练习：
+		1.硬件抽象层代码编写
+		
+		
+	int hw_get_module(const char *id, const struct hw_module_t **module)
+	功能：通过id获取硬件出现层模块的对象
+	参数：
+		@id     :模块的身份证号
+		@module :获取的模块对象
+	返回值：成功0 ，失败错误
+	
+	
+	练习：
+		1.实现app->c->hal->driver
+		
+【4】hw_get_module调用模块过程的		
+	1.为什么变量名必须是HMI？
+		#define HAL_MODULE_INFO_SYM    HMI
+	2.为什么硬件抽象层的库的名字这么命名？
+		id.default.so
+	3.硬件抽象层库的路径
+		/system/lib/hw
+	
+	int hw_get_module(const char *id, const struct hw_module_t **module)
+		hw_get_module_by_class(id, NULL, module);
+			strlcpy(name, class_id, PATH_MAX);
+			name = "myled";
+			snprintf(prop_name, sizeof(prop_name), "ro.hardware.%s", name);
+			
+			prop_name = "ro.hardware.myled"
+			(property_get(prop_name, prop, NULL)
+							键        值
+			prop = NULL
+		
+		static const char *variant_keys[] = {
+			"ro.hardware",     --------->sun8i
+			"ro.product.board",--------->exdroid
+			"ro.board.platform",-------->astar
+			"ro.arch"          --------->NULL
+		};
+		
+		hw_module_exists(path, sizeof(path), name, prop)
+		
+		#define HAL_LIBRARY_PATH1 "/system/lib/hw"
+		#define HAL_LIBRARY_PATH2 "/vendor/lib/hw"
+		snprintf(path, path_len, "%s/%s.%s.so",HAL_LIBRARY_PATH2, name, subname);
+		path = "/vendor/lib/hw/myled.sun8i.so"
+		path = "/vendor/lib/hw/myled.exdroid.so"
+		path = "/vendor/lib/hw/myled.astar.so"
+		
+		snprintf(path, path_len, "%s/%s.%s.so", HAL_LIBRARY_PATH1, name, subname);
+		path = "/system/lib/hw/myled.sun8i.so"
+		path = "/system/lib/hw/myled.exdroid.so"
+		path = "/system/lib/hw/myled.astar.so"
+		path = "/system/lib/hw/myled.default.so"
+
+	return load(class_id, path, module);  如果库存在会调用load函数
+		handle = dlopen(path, RTLD_NOW);   //打开动态库
+		#define HAL_MODULE_INFO_SYM_AS_STR  "HMI"
+		const char *sym = HAL_MODULE_INFO_SYM_AS_STR;
+		hmi = (struct hw_module_t *)dlsym(handle, sym);
+		
+【5】Android系统启动流程
+	1.uboot  kernel  rootfs
+	【1】Uboot的启动流程
+		Uboot的启动分为两个阶段。
+		第一阶段：设置异常向量表，设置ARM核为svc模式，关cache和关mmu，
+		关看门狗，初始化时钟，串口，内存，初始化栈空间，清bss。跳转到第二阶
+		段。
+		第二阶段：硬件的初始化，读取环境变量，将内核从emmc加载到内存中，
+		调用内核
+	【2】kernel的启动流程
+		设置cpu为svc模式，关中断
+		为内核的解压做准备（内存，中断等等）
+		内核完成自解压，调用__start_kernel来执行内核
+		挂载根文件系统
+		开启第一个用户进程init，执行linuxrc应用程序
+	【3】rootfs执行过程
+		Linuxrc调用inittab文件（规定操作系统行为文件）获取操作系统行为。
+		执行启动第一个脚本rcS，rcS中调用mount -a 挂载fstab中所有设备
+		当控制台登录的时候，执行bin/sh命令，进入shell命令行（在进入前，会执行profile，设置环境变量）
+			
+
+	2. init进程启动及Native服务启动 
+	
+	
+	3. SystemServer及Android服务启动 
+	4. Home桌面启动 	
+			
+		
+		
+		
+		
+		
+	
+	
+	
+		
+		
+		

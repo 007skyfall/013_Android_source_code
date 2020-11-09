@@ -1,0 +1,320 @@
+【1】复习
+	1.Android.mk(编译的代码是Arm架构的)
+		LOCAL_PATH:=$(call my-dir)
+		include $(CLEAR_VARS)
+		LOCAL_MODULE:=test  //libadd
+		LOCAL_MODULE_PATH:=$(LOCAL_PATH)/bin
+		LOCAL_MODULE_PATH_64:=$(LOCAL_PATH)/bin
+		LOCAL_SRC_FILES:=test.c  //add.c
+		include $(BUILD_EXECUTABLE)
+		include $(BUILD_SHARED_LIBRARY)
+		include $(BUILD_STATIC_LIBRARY)
+		
+		多文件的编译：$(call all-c-files-under,src);
+		第三方库：LOCAL_LDFLAGS
+		系统库动态：  LOCAL_SHARED_LIBRARIES
+		系统库静态：  LOCAL_STATIC_LIBRARIES
+	2.jni机制
+		1.数据类型匹配
+			java   jni   c
+			int    jint  int
+			char   jchar char
+			
+		2.方法和函数的一一对应 
+			String test(char a,int b[],String c);
+			(C[ILjava/lang/String;)Ljava/lang/String;
+	
+	jni静态注册：
+		java
+			1.使用native修饰方法
+			2.System.loadLibrary("hello");
+			3.调用本地方法
+			
+			javac Jni.java ---->Jni.class
+			javah -jni Jni ---->Jni.h
+		----------------------------|-------------
+		c
+								  libhello.so
+									|
+			gcc -shared -fPIC hello.c -o libhello.so 
+								|
+							.h中的函数
+								|
+							c中的语法
+	静态注册缺点
+		1.jni静态注册生成的中间文件比较多，占用内存
+		2.函数的命名格式复杂 Java_包_类名_方法名
+		3.效率非常低 （需要函数名字的对比，对比时间长）
+		
+【2】jni动态注册
+
+	java:
+		1.使用native修饰方法
+		2.System.loadLibrary("hello");
+		3.调用本地方法	
+		
+		javac Jni.java --->Jni.class
+	----------|-----------------------------
+	c
+		JNI_onLoad(JVM*jvm,)
+		{
+			1.通过jvm获取到env
+			2.借助env中的方法找类
+			3.借助env中的方法本地方法
+		}
+	
+	typedef struct {
+		char *name;     //java中native修饰的方法名
+		char *signature;//签名
+		void *fnPtr;    //c 函数名字
+	} JNINativeMethod;
+	
+	jint c_open(JNIEnv *env, jclass clazz)
+	{
+		
+		
+	}
+	
+	JNINativeMethod methods[] = {
+		[0] = {
+			.name      = "java_open",
+			.signature = "()I",
+			.fnPtr     = (void *)c_open,  
+		},
+	}
+	
+	JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved)
+	{
+		JNIEnv *env;
+		jclass cls;
+		
+		//1.获取env
+		if ((*jvm)->GetEnv(jvm, (void **)&env, JNI_VERSION_1_4)) {
+			return JNI_ERR; /* jni.h JNI version not supported */
+		}
+		
+		//2.找类
+		cls = (*env)->FindClass(env, "包名+类名");
+		if (cls == NULL) {
+			return JNI_ERR;
+		}
+		
+		//3.方法的映射
+		(*env)->RegisterNatives(env, cls, methods, sizeof(methods)/sizeof(methods[0]));
+		
+		return JNI_VERSION_1_4;
+	}
+	
+【4】将java->c->driver移植到平板上	
+	jdk (java开发套件（windows）)
+	adt (它是写app应用程序的软件)
+	
+	app--->.apk
+
+	-------------------------------------
+	c
+		包名：package com.hqyj.led_app;
+		类名：LedService
+		
+		"com/hqyj/led_app/LedService"
+	
+	-------------------------------------
+	driver
+	
+【5】jni的调试
+	app执行的时候，出现如下错误：
+	/system/lib   /vendor/lib  不能够找到libhello.so
+	
+	
+	将hello.c编译好的动态库拷贝到相应的目录下即可
+	hello.c编译的命令：
+	arm-linux-gnueabi-gcc -shared -fPIC hello.c -o libhello.so 
+	-I /usr/lib/jvm/java-7-openjdk-amd64/include/ 
+	-I /home/linux/fspad-733/androidM/prebuilts/ndk/9/platforms/android-21/arch-arm/usr/include/ 
+
+	
+	出现如下错误：
+	java.lang.UnsatisfiedLinkError: 
+	dlopen failed: library "libc.so.6" not found（找不到c库）
+
+	解决办法：
+	编译时将libc.so.6编译到libhello.so这个库中
+	libc.so.6   这是标准的c库
+	libc.so     非标准c库
+	
+	出现如下错误：
+	java.lang.UnsatisfiedLinkError: dlopen failed: 
+	cannot locate symbol "__android_log_print" referenced by 
+	"/system/lib/libhello.so"...
+	
+	出现错误的原因：缺少liblog.so库
+
+	解决方式：编译时将他也编译到libhello.so中
+	
+	arm-linux-gnueabi-gcc -shared -fPIC hello.c -o libhello.so 
+	-I /usr/lib/jvm/java-7-openjdk-amd64/include/ 
+	-I /home/linux/fspad-733/androidM/prebuilts/ndk/9/platforms/android-21/arch-arm/usr/include/ 
+	-nostdlib /home/linux/fspad-733/androidM/prebuilts/ndk/9/platforms/android-21/arch-arm/usr/lib/libc.so 
+	/home/linux/fspad-733/androidM/prebuilts/ndk/9/platforms/android-21/arch-arm/usr/lib/liblog.so
+
+	
+	测试成功：
+	127|root@astar-fspad_733:/ # logcat | grep "hello"
+	01-03 11:14:03.161  6695  6695 I hello   : this is c_open
+	01-03 11:14:03.161  6695  6695 I hello   : this is c_ioctl
+	01-03 11:14:03.161  6695  6695 I hello   : which = 1,status = 1
+	01-03 11:14:03.362  6695  6695 I hello   : this is c_ioctl
+	01-03 11:14:03.362  6695  6695 I hello   : which = 1,status = 0
+	01-03 11:14:03.362  6695  6695 I hello   : this is c_close
+
+	复习：
+		1.写一个app应用程序
+		2.hello.c --->使用交叉编译工具---->出错（解决）
+--------------------------------------------------------------------------		
+【1】Android.mk编译hello.c
+		LOCAL_PATH:=$(call my-dir)
+		include $(CLEAR_VARS)
+		LOCAL_MODULE:=libhello 
+		LOCAL_MODULE_PATH:=$(LOCAL_PATH)/lib 
+		LOCAL_SRC_FILES:=./src/hello.c 
+		LOCAL_SHARED_LIBRARIES:=liblog
+		include $(BUILD_SHARED_LIBRARY)
+
+	APP：
+		    LED_APP.apk
+	---------------------------------------------
+	jni:	libhello.so //"com/hqyj/led_app/LedService"
+			hello.c--->Android.mk--->libhello.so
+	----------------------------------------------
+	driver:
+	
+	练习：
+		1.让app应用程序调用掉libhello.so的库
+	
+	实现的步骤：
+		1.安装apk文件到平板上
+			adb install LED_APP.apk
+		2.写一个.c的代码
+			hello.c  使用的是jni的动态注册
+			
+			JNI_onLoad接口：
+			1.获取env(jni.pdf)
+			2.找类
+			3.注册本地方法（java方法--->函数）
+			
+		3.编译.c文件（Android.mk）--->libhello.so
+			733:
+			LOCAL_PATH:=$(call my-dir)
+			include $(CLEAR_VARS)
+			LOCAL_MODULE:=libhello 
+			LOCAL_MODULE_PATH:=$(LOCAL_PATH)/lib 
+			LOCAL_SRC_FILES:=./src/hello.c 
+			LOCAL_SHARED_LIBRARIES:=liblog
+			include $(BUILD_SHARED_LIBRARY)
+			
+			764:
+			LOCAL_PATH:=$(call my-dir)
+			include $(CLEAR_VARS)
+			LOCAL_MODULE:=libhello 
+			LOCAL_MODULE_PATH_64:=$(LOCAL_PATH)/lib 
+			LOCAL_SRC_FILES:=./src/hello.c 
+			LOCAL_SHARED_LIBRARIES:=liblog
+			include $(BUILD_SHARED_LIBRARY)
+		4.将libhello.so放到平板上	
+			733:
+			adb push libhello.so /system/lib
+			
+			764:
+			adb push libhello.so /system/lib64
+		5.查看
+			在平板上点击按钮
+			查看：
+			adb shell
+			logcat | grep "hello"
+			
+【2】led灯的驱动	
+		6.0 	gpiof2
+		7.0 	gpiof3
+		
+		config 0x01c208b4
+		data   0x01c208c4
+		
+		
+	   #define CON 0x01c208b4
+	   #define DAT 0x01c208c4
+	
+	   unsigned int *con;
+	   unsigned int *dat;     
+		
+【3】运行应用程序出错
+	01-03 14:35:51.053  7805  7805 I hello   : open /dev/hello error
+	01-03 14:35:51.053  7805  7805 I hello   : this is c_ioctl
+	01-03 14:35:51.053  7805  7805 I hello   : which = 1,status = 1
+	
+	解决方法1：
+	chmod 777 /dev/hello
+	
+	重新运行app:
+	01-03 14:57:52.327  8418  8418 I hello   : this is c_open
+	
+	01-05 13:03:30.788  8418  8418 W om.hqyj.led_app: type=1400 
+	audit(0.0:450): avc: denied { read write } for name="hello" 
+	dev="tmpfs" ino=23231 scontext=u:r:untrusted_app:s0:c512,c768 
+	tcontext=u:object_r:device:s0 tclass=chr_file permissive=0
+	
+	01-03 14:57:52.327  8418  8418 I hello   : open /dev/hello error
+	01-03 14:57:52.327  8418  8418 I hello   : this is c_ioctl
+	01-03 14:57:52.327  8418  8418 I hello   : which = 1,status = 1
+			
+	出错原因：经过搜索发现缺少selinux权限
+	
+	临时解决办法（设备节点的权限）：
+		setenforce 0  具备临时权限
+		setenforce 1  关闭临时权限
+	
+	
+	练习：
+		1.通过app-c->driver将平板的灯点亮
+	
+	
+	selinux权限问题分析：
+	01-05 13:03:30.788  8418  8418 W om.hqyj.led_app: type=1400 
+	audit(0.0:450): avc: denied { read write } for name="hello" 
+	dev="tmpfs" ino=23231 scontext=u:r:untrusted_app:s0:c512,c768 
+	tcontext=u:object_r:device:s0 tclass=chr_file permissive=0
+	
+	分析过程：
+	缺少什么权限：        read write 
+	谁缺少权限  ：        untrusted_app
+	对哪一个文件缺少权限：device
+	什么类型的文件：      chr_file
+	
+	解决办法：untrusted_app.te
+	allow untrusted_app device:chr_file {read write};
+	allow untrusted_app device:chr_file rw_file_perms;
+	
+	
+	作业：
+	1.点灯
+	2.selinux权限问题
+	No private recovery resources for TARGET_DEVICE astar-fspad_733
+	out/host/linux-x86/bin/checkpolicy:  loading policy configuration
+	from out/target/product/astar-fspad_733/obj/ETC/sepolicy_interme
+	diates/policy.conf
+	libsepol.report_failure: neverallow on line 280 of external/se
+	policy/domain.te (or line 9864 of policy.conf) violated by allow
+	untrusted_app device:chr_file { read write open };
+	libsepol.check_assertions: 1 neverallow failures occurred
+	Error while expanding policy
+	external/sepolicy/Android.mk:69: recipe for target 'out/target/product/astar-fspad_733/obj/ETC/sepolicy_intermediates/sepolicy' failed
+	make: *** [out/target/product/astar-fspad_733/obj/ETC/sepolicy_intermediates/sepolicy] Error 1
+
+	#### make failed to build some targets (02:10 (mm:ss)) ####
+
+
+	
+	
+	
+	
+	
+	

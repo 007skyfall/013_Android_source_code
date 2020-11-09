@@ -1,0 +1,1 @@
+cmd_/home/linux/jni/java-c-driver-d/driver/myled.ko := arm-linux-gnueabi-ld -EL -r  -T /home/linux/fspad-733/lichee/linux-3.4/scripts/module-common.lds --build-id  -o /home/linux/jni/java-c-driver-d/driver/myled.ko /home/linux/jni/java-c-driver-d/driver/myled.o /home/linux/jni/java-c-driver-d/driver/myled.mod.o

@@ -1,0 +1,201 @@
+匿名内部类创建线程并开启
+new Thread(new Runnable() {
+
+			@Override
+			public void run() {
+				for (int i = 0; i < 10; i++) {
+					try {
+						Thread.sleep(1000);
+						Log.i("Tag", "计数值:" + i);
+
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+
+				}
+
+			}
+		}).start();
+
+=======================================================
+
+1.线程的关闭
+	在ondestroy方法中让线程的循环停止，
+	1.private boolean thread_loop;
+	2.在ondestroy设置thread_loop =true;
+	3.！thread_loop 可以让线程的循环体停止已达到线程停止
+=================================
+2.完成连续计数
+	1.对变量i添加关键字 static
+	与类相关 与对象无关
+=================================
+3.完成将log对计数的打印的值，放置到Activity中用一个textview来显示我们的计数内容
+	1.需要新内容广播接收器 BroadcastReceiver
+	2.用广播接收器来完成 Activity和service之间的数据的传递
+	步骤：
+		1.广播接收器的创建 receiver = new BroadcastReceiver() :::MainActivity
+		2.注册频道号 registerReceiver(receiver, filter);:::MainActivity
+		3.发送广播 sendBroadcast(intent);:::MyService
+		4.匹配频道号 intent.setAction("FM1126.2");:::MyService
+		5.发送具体的内容 intent.putExtra("Count", i);:::MyService
+		6.取出发送过来的内容intent.getIntExtra("Count", 0);::onReceive
+		7.创建Textview在xml文件
+		8.设置计数值tv.setText("当前计数值:" + Count);::onReceive
+======================================================
+4.实验 ：对控件按钮的按下时颜色加深，区分按下和点击效果
+	1.res下创建一个文件夹drawable
+	2.在drawable下创建一个xml文件，根节点选择selector
+	3.在文件里面书写代码item，android:state_pressed，android:drawable
+	4.发现在文件中无法直接使用color颜色，那么我们定义颜色
+	5.在values下定义xml文件，起名为colors
+	6.在colors文件中定义颜色，color，name，value
+	7.在press_btn下修改drawable="@color/shense"
+	8.对button添加  android:clickable="false" 对RelativeLayout 添加  android:clickable="true"
+=================================================
+5.实验：seekbar 拖动条，将这个拖动条也可以进行控制拖动
+	1.设置seekbar的监听事件setOnSeekBarChangeListener
+	2.onStopTrackingTouch（松开按压/鼠标），onStartTrackingTouch（按下鼠标，按下游标），onProgressChanged（进度改变）	
+	3.
+	  3.1:在线程或者服务停止时，拖动seekbar，使其数据同步。
+		在onProgressChanged添加	tv.setText("当前计数值:" + progress); MyService.i = progress;
+		问题：这样导致我们的进度条速度减慢，
+	   3.2：在线程或者服务运行时，拖动seekbar，使其数据同步。
+		解决：将MyService.i = progress;修改到onStopTrackingTouch的方法中。时期完成功能
+=====================================================
+		问题1：使用左移和右移按钮 功能完善，每次在原有计数值上面添加10的单位
+		问题2：计数值如果到达100或者seekbar最大值，使线程停止
+		问题3：在动态状态下，如果拖动进度条，不要让进度条发生跳转计数
+	
+==================================================================================
+6.广播的注销
+	在组件退出或者是不再使用广播时，销毁广播，如果不销毁则会报错。
+	在ondestroy()实现unregisterReceiver(receiver);
+
+使用： android:background="@drawable/press_btn"在 RelativeLayout
+	
+======================================================
+问题3：在动态状态下，如果拖动进度条，不要让进度条发生跳转计数
+
+方式1.boolean变量添加static
+
+方式2.使用广播完成该功能
+	1.在线程循环中添加一个内循环，循环内容为空
+	2.让循环的循环表达式为变量
+	3.在MainActivity的onStartTrackingTouch方法中添加发送广播的工作
+	4.在MainActivity的onStopTrackingTouch方法中添加发送广播的工作 停止内循环
+	5.在MyService创建广播的接受者并在oncreate方法中注册
+	6.在广播的onReceive方法中对not_press进行赋值，默认值为false
+=======================================================
+广播接收器 BroadcastReceiver：四大组件之一，组件之间的消息传递
+	主要用来完成service和Activity的消息的传递
+	
+	异步方式通信，具体的原理，现实生活中的电台就是我们的原理
+	
+	1.发送方（匹配）
+	2.接受方（频道号）
+	3.频道号
+========================================================
+TextView，
+	字体大小，字体颜色等发生变化	
+	#0f0 
+	 rgb  red green blue
+	  android:textStyle="bold" 字体加粗
+	
+ android:textSize="22sp"
+        android:textColor="#0f0"
+        android:textStyle="bold"
+
+========================================================
+布局中控件的一些常用属性介绍
+	android:layout_width="50dp" dp单位 跟像素类似 px
+        android:layout_height="50dp"
+	宽高值：	wrap_content，match_parent，fill_parent
+		(自适应,根据这个控件里面的内容的大小进行调整)
+		（match_parent，匹配父类）
+
+	2.paddingTop：内边距
+
+	3.任何一个控件都能被 RelativeLayout所包含
+	
+	4.居中效果
+===========================================================================
+UI界面开发
+	
+	Viewgroup 比作箱子 用来盛放view的
+	view      比作东西，可以放置箱子中
+	
+	viewgroup 也是一个东西， viewgroup extends View
+
+	viewgroup:RelativeLayout(相对布局),AbsoluteLayout（绝对布局），LinearLayout(线性布局)，
+		  FrameLayout（帧布局），TableLayout（表格布局） extends LinearLayout,
+		  GridLayout(网格布局) extends TableLayout
+
+	1.RelativeLayout 从左上角开始布局，可以相对拖动控件来布局
+	2.        android:layout_centerHorizontal="true"  正中心
+        	  android:layout_centerVertical="true"
+
+	3. 	  android:layout_above="@+id/button3"    上方
+       		  android:layout_toLeftOf="@+id/button3" 左边	
+		  android:layout_toRightOf="@+id/button3" 右边
+		  android:layout_alignLeft="@+id/button5" 左边沿对齐
+       		  android:layout_below="@+id/button3" 下方
+		  android:layout_alignBaseline="" 基准线对齐 中心线对齐
+		  注意在没有要求的情况下，从左到右，从上到下 依次排布
+	4. RelativeLayout 优点拖动方便，缺点牵一发而动全身
+=======================================================================	
+	4. LinearLayout 线性布局
+		
+		1. android:orientation="vertical"  方向 horizontal
+		2.稳定性强，一般情况下，都会在LinearLayout 嵌套布局
+		3. android:gravity="bottom"
+			在父类布局中添加gravity，使其布局内的控件处于最下方
+	
+		4.android:layout_gravity="bottom" 使其这个本身控件处于父类空间的重心位置
+			注意：对于这个属性，你要确定父类布局的方向问题，否则失灵
+		
+		5.android:layout_weight="1" 权重，此时宽或高失效
+	
+		6.android:layout_margin=""系列，外边距距离相邻的控件或者父控件的上下左右的距离
+	
+		7.android:padding="16dp" 内间距 指的父控件与子控件之间的距离
+============================================================================
+	AbsoluteLayout：绝对布局
+		1.以左上角为(0,0)坐标开始布局
+		android:layout_x="133dp"
+       		android:layout_y="64dp"
+==============================================================================
+	FrameLayout：覆盖效果
+		后面的控件会覆盖前面定义的控件
+======================================================================
+    	android:textSize="22sp"  字体大小
+        android:textColor="#aa00ff" 字体颜色
+        android:textStyle="bold|italic" 字体格式
+        android:typeface="serif"	字体类型
+===================================================
+EditText：
+	 <requestFocus /> 获得焦点
+	
+	   android:ems="10" 代表宽度 10字符的宽度
+           android:hint="请输入密码" 提示性文字
+	   android:textColorHint="#ff0000" 提示文字的颜色
+	    android:maxLines="2" 最大行 只能显示两行
+  	   android:password="true" 密文显示
+           android:singleLine="true"唯一一行
+   	   android:enabled="false" 无法使用
+	   android:inputType="number" 只能输入数字
+========================================================
+	Button按钮的onclick属性
+
+
+
+
+
+
+
+
+
+
+
+
+

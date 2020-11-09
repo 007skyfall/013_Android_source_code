@@ -1,0 +1,8 @@
+LOCAL_PATH:=$(call my-dir)
+include $(CLEAR_VARS)
+LOCAL_MODULE:=myled.default
+LOCAL_MODULE_PATH:=$(LOCAL_PATH)
+LOCAL_SRC_FILES:=hal.c
+LOCAL_SHARED_LIBRARIES:=liblog
+include $(BUILD_SHARED_LIBRARY)
+

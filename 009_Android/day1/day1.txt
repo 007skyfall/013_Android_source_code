@@ -1,0 +1,216 @@
+【1】课前知识
+	1.为什么学习Android底层
+		1.公司需求
+		2.知识连贯
+	2.学习Android底层好处
+		1.开源
+		2.市场份额高，找工作机会多
+		3.从开发语言来说优势明显
+	3.学完可以找到什么样的工作
+		1.Android驱动开发
+		2.java调用c的机制
+		3.HAL层开发
+		4.界面定制
+		5.Android framework框架设计
+		等等......
+【2】4天的课程安排
+	1.如何在Android平板上跑Android系统
+	2.Android.mk 
+	3.java调用c的机制(jni)
+	4.HAL层开发
+	5.Android的启动流程
+	6.定制工作
+【3】拿到的Android源码如何使用
+	直接双击.vmx后缀的文件 ，ubuntu.vmdk
+	没有打开虚拟化技术  VXT  --->bios  将虚拟化技术  选配上
+	
+【4】Android的框架结构
+	1.应用层：一些系统的app，提供人机交互界面
+		Home  ：主菜单
+		phone:打电话
+		SMS短信:发短息
+	2.framework：框架层，为上层应用提供服务，向下层操作接口
+		activity manager：用来管理程序运行的生命周期
+		view system   : view提供接口应用
+		content providers :为两个或多个应用程序提供数据
+	3.库 ：为上层提供系统的库
+		libc：
+		glic  bionic
+		1.开源gpl  
+		2.精简
+		3.添加一些自己的函数log
+		sqlite
+		freetype
+		
+		DVM和JVM区别？
+		1.jvm运行的后缀.class,Dvm运行的后缀.dex
+		2.jvm基于栈，Dvm基于寄存器。运行速度快，效率高
+		3.DVM运行多个实例
+		
+	4.kernel
+		3.4  linux内核  5功能
+	
+	ftp://ftp.denx.de/pub/u-boot/
+
+【4】如何移植系统到平板上
+	1.获取源码
+		1.Google官网
+			硬件要求
+			您的开发工作站必须达到或超出以下硬件要求：
+			如果是 Gingerbread (2.3.x) 及更高版本（包括 master 分支），需要
+			使用 64 位环境。如果是较低的版本，则可以在 32 位系统中进行编译。
+			如果是校验代码，至少需要 100GB 可用磁盘空间；如果要进行编译，则
+			还需要 150GB。如果要进行多次编译或使用 ccache，则需要更多空间。
+			如果您在虚拟机中运行 Linux，则至少需要 16GB 的 RAM/交换空间。
+			
+			GNU/Linux
+			Android 6.0 (Marshmallow) - AOSP master：Ubuntu 14.04 (Trusty)
+			Android 2.3.x (Gingerbread) - Android 5.x (Lollipop)：Ubuntu 12.04 (Precise)
+			Android 1.5 (Cupcake) - Android 2.2.x (Froyo)：Ubuntu 10.04 (Lucid)
+				
+			下载的网址：https://source.android.com/source/downloading.html
+			
+			repo sync	-->10G 1周下载 5天编译
+			
+		2.解决方案提供商
+		3.芯片厂商 三星 全志 nxp 
+		
+	2.看目录结构
+	
+	lichee    <linux内核>
+		linux-3.4     内核目录
+		brandy/u-boot uboot
+		tools/pack/   有整体镜像
+		out           uImage / 交叉编译工具
+		
+	androidM  (Android文件系统) M 6.0  N 7.0   o   p  Q
+		packages/apps         app应用程序目录
+		framework             框架层
+		#binoic  dalvik        闭源
+		system                和系统启动相关目录
+		device                厂商特有的目录
+	    hardware              硬件抽象层目录
+		out                   编译后生成的文件存放目录
+	3.配置（uboot,内核移植），编译
+		lichee:
+			./build.sh config 配置
+			./build.sh        编译
+			mkbr && mkkernel && mkrootfs   uboot  内核  跟文件系统 
+		AndroidM
+			1.source build/envsetup.sh 
+			//在当前终端上添加相应的环境变量
+			2.lunch  20
+			//选配要编译的Android版本
+			3.extract-bsp
+			//拷贝内核和驱动模块
+			4.make -j2 
+		    //编译Android源码的
+			ramdisk.img--->跟文件系统       make ramdisk
+			boot.img   --->kernel+ramdisk  make bootimage
+			system.img --->Androd文件系统   make snod
+			
+			5.pack -d
+			//打包
+			
+	4.烧写测试
+		1.整体镜像烧写
+			1.获取整体镜像刷机包
+			fspad-733/lichee/tools/pack/sun8iw5p1_android_fspad-733_uart0.img 
+			2.一键烧写工具
+			
+			3.在平板上找到usb调试模式并将它打开
+			
+			4.手动更新驱动（给学生的资料->烧写工具）
+			
+			5.可以看到欢迎界面
+			
+			6.一键烧写
+				
+			7.选择可烧写镜像
+			
+			8.立即升级
+			
+			9.所有的选项选择 是
+			
+		
+		2.fastboot（单文件烧写）usb
+		文件位置：fspad-733/lichee/tools/pack/out/boot-resource.fex
+			fspad-733/androidM/out/target/product/astar-fspad_733/boot.img
+			fspad-733/androidM/out/target/product/astar-fspad_733/system.img
+			
+		分区：bootloader            boot        system
+		文件：boot-resource.fex     boot.img    system.img
+		
+		1.让平板进入接收数据的状态(执行其中一个步骤就可以了)
+			1.在关机情况下，同时按下“电源”+“音量+”
+			 ->reboot to bootloader
+			2.开机->设置->备份与重置->recovery模式
+			 ->reboot to bootloader
+			
+		2.借助fastboot工具发送文件
+			创建一个shell.bat文件，在文件中写入cmd
+			双击运行这个文件，就会出现一个输入命令的界面
+			fastboot  flash 分区   文件
+			fastboot flash bootloader boot-resource.fex
+			fastboot flash boot  boot.img
+			fastboot flash system  system.img
+			fastboot -i 0x1f3a flash system  system.img
+			fastboot reboot  --->重启
+		
+		3.recovery
+			source build/envsetup.sh
+			lunch 20
+			get_uboot
+			make otapackage --->zip升级包
+		--------------------------------------
+		   拷贝到平板的sd上
+		   进入到fastboot模式，apply update from extsd
+		   找到zip包，按下电源键即可升级
+		   
+【5】写一个代码在平板上测试下是否可以执行			
+	1.安装交叉编译工具	
+	交叉编译工具目录位置：
+	fspad-733/lichee/out/sun8iw5p1/android/common/buildroot$ 
+	cp  external-toolchain/ ~ -a
+	
+		1.所有用户生效
+			sudo vi /etc/environment 
+			:/home/linux/external-toolchain/bin/"
+			sudo reboot
+		
+		2.当前用户生效
+			vi .bashrc 
+			在最后一行：
+			export PATH=$PATH:/home/linux/external-toolchain/bin
+		3.当前终端上生效
+			export PATH=$PATH:/home/linux/external-toolchain/bin
+
+	2.通过adb进行数据的传输
+	  adb push <local> <remote>    - copy file/dir to device
+	  adb pull <remote> [<local>]  - copy file/dir from device	
+				
+	  adb push  a.out  /data  //将a.out上传到平板的data目录下
+	  adb shell               //以终端的形式进入平板上
+	  
+	 问题1：
+		root@astar-fspad_733:/data # ./a.out
+		/system/bin/sh: ./a.out: can't execute: Permission denied	
+		126|root@astar-fspad_733:/data # chmod 777 a.out
+		 
+	问题2：
+		root@astar-fspad_733:/data # ./a.out
+		/system/bin/sh: ./a.out: No such file or directory	
+				
+		 arm-linux-gnueabi-gcc test.c -static
+		
+	问题3：
+		D:\Fastboot>adb push a.out /system
+		failed to copy 'a.out' to '/system/a.out': Read-only file system
+
+		adb remount  //重新挂载system目录
+	作业：
+		1.修改开机启动动画
+		2.修改开机启动图片
+
+
+

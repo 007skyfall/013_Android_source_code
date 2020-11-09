@@ -1,0 +1,329 @@
+【1】复习
+	1.Android框架结构
+		1.应用层
+		2.框架层
+		3.库 dalvick虚拟机 
+								Jvm         Dvm
+			1.执行文件的后缀不一样.class    .dex   
+			2.                  栈          寄存器
+				寄存器的效率高，访问速度快
+			3.DVM中可以执行多实例，实例之间互不影响。
+		4.linux内核层
+			binder IPC
+	2.移植系统的流程
+		1.获取源码
+		2.看目录结构
+		3.配置编译
+			lichee
+			./build.sh config
+			./build.sh
+			androidM
+			source build/envsetup.sh(lunch croot cgrep jgrep m mm mmm)
+			lunch  20
+			extract-bsp 
+			make -j2  
+			---->ramdisk.img  <=make ramdisk
+			     boot.img     <=make bootimage
+				 system.img   <=make snod
+			pack
+			
+	4.烧写
+		1.整体镜像（PhoenixSuit.exe）
+		2.fastboot烧写(设置中oem 解锁，usb调试)
+			1.进入接收数据的模式
+				1.1关机 电源+“音量+” reboot to bootloader
+				1.2开机->设置->备份重置->recovery
+					reboot to bootloader
+			
+			2.发送数据
+				2.1双击shell.bat文件
+				2.2烧写
+					fastboot flash bootloader boot-resouece.fex
+					fastboot flash boot boot.img
+					fastboot flash system system.fex
+					fastboot oem unlock
+		3.recovery烧写
+			source build/envsetup.sh
+			lunch 20
+			get_uboot
+			make otapackage  -->xxx.zip包
+				
+	5.测试可执行程序
+		1.安装交叉编译器
+		2.编译代码
+			arm-linux-gnueabi-gcc  test.c -static-->a.out
+		3.将a.out传递到平板上
+			adb push a.out /data
+			adb shell
+			adb push a.out /system  <--read only
+			adb remount             <--如果平板重启了，读写权限就没有了
+					
+【2】Android中编译代码的方式
+	linux       Makefile
+	Android     Android.mk
+		
+	1.它是什么？可以用来干什么？
+		小型的Makefile文件
+		
+		编译（模块）：
+		- A static library.
+		- A shared library.
+		- A standalone executable.
+		
+	2.如何使用规则编写Android.mk
+		LOCAL_PATH := $(call my-dir)
+		//在写Android.mk必须以LOCAL_PATH作为开头
+		//获取Android.mk的当前路径
+		//call    调用
+		//my-dir  是编译系统提供一个宏，返回当前路径
+		
+		
+		include $(CLEAR_VARS)
+		//清除LOCAL_XXX环境变量,除了LOCAL_PATH之外
+		//所有的Android.mk都会调用这个变量，为了保
+		//证不重复,所以在用的时候先清除一下。
+		
+		LOCAL_MODULE := hello-jni
+		//指定模块名字（唯一）
+		//编译系统会自动添加模块的后缀比如foo-->libfoo.so
+		
+		LOCAL_SRC_FILES := hello-jni.c
+		//指定源文件的名字的
+		
+		
+		 include $(BUILD_SHARED_LIBRARY)
+		 //指定编译生成动态库
+		 include $(BUILD_STATIC_LIBRARY)
+		 //指定编译生成静态库
+		 include $(BUILD_EXECUTABLE)
+		 //指定编译生成可执行程序
+		 
+	3.如何编译
+		   8 - mm:      Builds all of the modules in the 
+						current directory, but not their dependencies.    
+		   9 - mmm:     Builds all of the modules in the 
+						supplied directories, but not their dependencies.
+		
+		
+	linux@Ubuntu1:~/fspad-733/androidM/Android-mk$ mm
+	The program 'mm' is currently not installed. You can install it by typing:
+	sudo apt install multimail
+	
+	原因没有导出环境变量
+		source build/envsetup.sh
+		lunch 20
+
+		
+	练习：
+		1.使用Android.mk编译可执行程序	
+		
+	多文件编译：
+	  1 LOCAL_PATH := $(call my-dir)
+	  2 include $(CLEAR_VARS)
+	  3 LOCAL_MODULE:=test
+	  4 LOCAL_MODULE_PATH:=$(LOCAL_PATH)/bin
+	  5 //LOCAL_SRC_FILES:=./src/*.c
+	  6 LOCAL_SRC_FILES:=$(call all-c-files-under,src)
+	  7 include $(BUILD_EXECUTABLE)    
+	  
+	动态库的编译                                 	
+	  9 include $(CLEAR_VARS)
+	 10 LOCAL_MODULE   :=libadd
+	 11 LOCAL_SRC_FILES:= ./src/add.c
+	 12 LOCAL_MODULE_PATH:=$(LOCAL_PATH)/lib
+	 13 include $(BUILD_SHARED_LIBRARY)
+	静态库的编译 
+	 15 include $(CLEAR_VARS)
+	 16 LOCAL_MODULE   :=libadd
+	 17 LOCAL_SRC_FILES:= ./src/add.c
+	 18 LOCAL_MODULE_PATH:=$(LOCAL_PATH)/lib
+	 //静态库的路径无法指定
+	 19 include $(BUILD_STATIC_LIBRARY)       
+
+	-I(include) 指定头文件路径
+	-L(library) 指定库的路径   
+	-l(link)    指定连接库的名字
+
+	第三方库的使用：
+	LOCAL_LDFLAGS:指定第三方库（自己写的库）
+	 16 include $(CLEAR_VARS)
+	 17 LOCAL_MODULE:=test
+	 18 LOCAL_MODULE_PATH:=$(LOCAL_PATH)/bin
+	 19 LOCAL_SRC_FILES:=./src/test.c
+	 20 #LOCAL_LDFLAGS:=    -L ./lib -ladd                                                             
+	 21 LOCAL_LDFLAGS:= $(LOCAL_PATH)/lib/libadd.so
+	 22 include $(BUILD_EXECUTABLE)
+
+	系统库的使用：
+		LOCAL_SHARED_LIBRARIES   系统动态库
+		LOCAL_STATIC_LIBRARIES   系统静态库
+		
+		grep "__android_log_print" * 2>/dev/null  -nR
+		
+		__android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+
+		错误1：
+		error: 'ANDROID_LOG_INFO' undeclared (first use in this function)
+		__android_log_print(ANDROID_LOG_INFO, LOG_TAG,"this is andorid log print\n");
+
+		错误原因：缺少头文件
+		#include <android/log.h>
+		
+		
+		错误2：
+		error: undefined reference to '__android_log_print'
+		collect2: error: ld returned 1 exit status
+
+		错误原因：缺少库 liblog.so 
+		
+		nm liblog.so 
+			000002f8 T __android_log_assert
+			0000030c T __android_log_btwrite
+			00000320 T __android_log_buf_print
+			00000334 T __android_log_buf_write
+			00000348 T __android_log_bwrite
+			0000035c T __android_log_dev_available
+			00000370 T __android_log_print  <====
+			00000384 T __android_log_vprint
+			00000398 T __android_log_write
+			00002000 A __bss_start
+
+	如何查看：
+	root@astar-fspad_733:/data # logcat | grep "hello"
+	01-02 13:01:17.39 I hello   : this is andorid log print
+		
+【3】java调用c的机制（jni重点内容）
+	1.为什么Android不使用java从头开发到尾？
+		java语言不能够操作硬件
+		1.平台移植性强，开发效率高
+	2.为什么Android不使用c从头开发到尾？
+		平台移植性差，开发效率低
+		2.可以操作硬件，代码执行效率高
+		
+	java：https://www.runoob.com/java/java-loop.html
+		1.char 2 int 4
+		int hello(int a);
+		重载和重写
+		int hello(int a,int b);
+		int hello(int c);
+		
+	----------------------------------------
+	c   ：
+		2.char 1 int 4 
+		int hello(int a);
+			
+			
+	1.数据类型不匹配
+		java----j---jni---------c  
+		int         jint            int  基本数据类型
+		String      jstring (函数)  char *引用数据类型
+		
+		
+	2.方法和函数不能一一对应
+		1.方法名，在Jni中没有体现出来
+		2.参数列表相挨着，中间没有逗号，没有空格
+		3.返回值出现在（）后面
+		4.如果参数是引用类型，那么参数应该为：L类型;
+
+
+	练习：
+		1.boolean isLedOn(void);
+			(V)Z
+		2.void setLedOn(int ledNo);
+			(I)V
+		3.String substr(String str, int idx, int count);
+			(Ljava/lang/String;II)Ljava/lang/String;
+		4.char fun (int n, String s, int[] value);
+			(ILjava/lang/String;[I)C
+		5.(Ljava/lang/String;Landroid/View;)Z
+			boolean test(String a,View b)
+
+
+	实现java调用c的过程
+	
+	写java代码
+			
+		native int print(int num);
+		
+		
+		1.需要告诉编译器，这个方式是在c中实现的，native
+		2.告诉java虚拟机去哪个动态库中找
+			System.loadLibrary("库名")
+		
+	---------------------------------
+	c代码
+		int c_print(int num);
+		
+		将c代码编译生成动态库 libhello.so
+	
+	
+	1.java:
+	public class Jni{  <=类名
+		public native int print(int num); <=本地方法
+		static{                           <=静态代码块，在类被加
+										  <=载时，会最先执行,只会执行一次
+			System.loadLibrary("hello");  <=print方法在java没实现，去库中找
+		}
+		
+		public static void main(String argv[])<=main函数
+		{
+			Jni jni = new Jni();              <=实例化一个对象
+			System.out.println(jni.print(10));<=调用print函数，并将返回值打印出来                                                     
+		}
+	}
+	
+	2.编译：
+		javac Jni.java --------------->生成.class字节码文件
+		
+	3.生成c中的函数名
+		javah -jni Jni --------------->Jni.h 头文件
+		JNIEXPORT jint JNICALL Java_Jni_print 
+		(JNIEnv *, jobject, jint);
+		
+	4.在c中实现这个函数即可
+	  1 #include <stdio.h>
+	  2 //#include <jni.h>
+	  3 #include "Jni.h"                                                                               
+	  4 
+	  5 jint Java_Jni_print(JNIEnv *env, jobject obj, jint num)
+	  6 {
+	  7     printf("c:num = %d\n",num);
+	  8     return 123;
+	  9 }
+
+	5.如何对c进行编译：
+		gcc -shared -fPIC hello.c -o libhello.so 
+		-I /usr/lib/jvm/java-7-openjdk-amd64/include/  -------->libhello.so
+
+	6.执行java代码看c函数是否执行了
+		export LD_LIBRARY_PATH=.
+		java Jni
+		
+
+	java  --->c  ----->driver
+	
+	java  :	java_open    java_ioctl    java_close
+	-------------------------------------------------	
+	c     :	c_open        c_ioctl       c_close
+	-------------------------------------------------
+	driver:fops:
+			dirver_open   driver_ioctl  driver_close
+		
+
+	练习：
+		1.java->c->驱动实例
+		
+	作业：
+		fspad-733 gpiob2
+		fspad-764 gpiob3
+	
+	
+	
+	
+	
+	
+	
+	
+
+
+	

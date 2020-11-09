@@ -1,0 +1,73 @@
+
+
+	Android应用 一共三天
+	
+	王
+	
+	图形界面编程，内容较多，语速较快。
+解压到当前文件夹，绝对路径不要带有中文，建议盘符的根目录解压。
+
+	1.页面跳转并传递数据
+	
+	（1）.创建第二个Activity页面 继承等等
+	 
+	(2).在第一个页面创建一个按钮，设置按钮的点击功能
+	 
+	(3).在点击功能里面添加页面的跳转 startActivity(new Intent(xxx,xxx));
+	
+	(4).在第一个页面中intent.putextra()用来携带想要携带的数据
+	
+	(5).在第二个页面中用getintent()来获取传递过来的intent然后对数据进行处理
+=============================================================================
+	
+	两个不同应用程序之间页面的跳转
+
+	1.创建了4个按钮 ，实现点击功能
+	
+	2.点击功能使用当前页面的对象来实现，而且4个按钮使用了同一个方法来监听
+	
+	3.跳转打电话页面在intent对象构造器添加参数，在intent对象的构造器还需要添加电话号码
+	
+	4.添加打电话权限在AndroidMainfest.xml。
+	  <uses-permission android:name="android.permission.CALL_PHONE" />
+================================================
+
+	隐式跳转，目的希望当前应用程序，跳转其他应用程序的页面，跳转原理：
+	
+	首先你要保证，你跳转的页面在Android手机中存在。
+	其次，这个页面提供了接口（action）
+	发生跳转时，功能回去手机系统中去查找这个页面，如果这个页面存在且可以使用。
+	那么跳转。
+	步骤：
+		1.
+		  要跳转的页面需要在他的Androidmainfest.xml中添加一个接口
+			  <intent-filter>
+                	<action android:name="android.intent.action.second_other" />
+			//android.intent.action.second_other 这个值在系统中是唯一的
+               		 <category android:name="android.intent.category.DEFAULT" />
+            		</intent-filter>
+		
+		2.创建intent 对intent对象来设置setaction的参数
+		  这个参数要跟 要跳转的页面的<action 接口完全一样
+		
+		3.发生页面跳转
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
